@@ -1,0 +1,16 @@
+# Entorno virtual y cachés de Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Material del curso y paquetes de reparto (no van al repositorio)
+Contenido guia/
+entregas_lab4/
+*.zip
+
+# Sistema operativo / editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
