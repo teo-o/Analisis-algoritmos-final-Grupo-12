@@ -210,7 +210,59 @@ Además, [`medicion.py`](src/cargue_vehiculos/medicion.py) vuelve a comprobar de
 
 ### 4.3 Operación 3 — Experimentos, gráficas y contraste con la teoría
 
-<!-- SECCION-SAMUEL-EVALUACION: Samuel reemplaza este comentario con su sección -->
+Para medir usamos [`medicion.py`](src/cargue_vehiculos/medicion.py), que genera los lotes con [`datos.py`](src/cargue_vehiculos/datos.py) y la semilla 2026. En cada tamaño las cuatro soluciones corren sobre las mismas instancias, así la comparación es justa. El `time.perf_counter()` solo va alrededor de la llamada a cada solución (nunca de la generación de datos) y cada medición se repite 5 veces y se saca el tiempo medio. Todo queda guardado en [`mediciones.csv`](graficas/cargue_vehiculos/mediciones.csv) y en [`resumen_mediciones.md`](graficas/cargue_vehiculos/resumen_mediciones.md).
+
+Además del tiempo contamos operaciones elementales, que no dependen del computador. Para la PD es una celda de la tabla, para la exhaustiva un subconjunto explorado y para las reglas voraces un lote revisado.
+
+Hicimos cuatro experimentos:
+
+- **n pequeño:** n de 4 a 20 con W igual al 40 % del peso total, así que W también crece con n. Aquí corren las cuatro soluciones, y de paso se verifica que la PD y la exhaustiva den el mismo valor.
+- **n grande:** n de 50 a 800 con W fija en 3.000 kg. Sin la exhaustiva, que ya no termina.
+- **W creciente:** n = 300 y W de 500 a 8.000 kg, solo con la PD.
+- **Volumen real:** 14 rutas con entre 300 y 600 lotes y vehículos de 2.500 a 4.000 kg. Aquí medimos el tiempo total y qué tanto valor lleva cada solución.
+
+![Tiempo frente a n](graficas/cargue_vehiculos/tiempo_vs_n.png)
+
+![Operaciones frente a n](graficas/cargue_vehiculos/operaciones_vs_n.png)
+
+![Tiempo frente a la capacidad](graficas/cargue_vehiculos/tiempo_vs_capacidad.png)
+
+#### Lo medido contra lo esperado
+
+Para comparar con la teoría tomamos parejas donde el segundo tamaño es el doble del primero y miramos cuánto se multiplicaron el tiempo y las operaciones.
+
+| Solución | Pareja | Factor tiempo | Factor operaciones | Teoría |
+|---|---|---:|---:|---|
+| Exhaustiva | n 8 → 16 | 234 | 256 | 2⁸ = 256 en operaciones |
+| Exhaustiva | n 10 → 20 | 1.821 | 1.024 | 2·2¹⁰ = 2.048 en tiempo |
+| PD | n 100 → 200 (W fija) | 1,91 | 2,00 | 2 |
+| PD | n 300 → 600 (W fija) | 1,96 | 2,00 | 2 |
+| PD | n 400 → 800 (W fija) | 1,99 | 2,00 | 2 |
+| PD | n 8 → 16 (W también crece) | 3,60 | 4,96 | ≈ 5 |
+
+Lo que se ve:
+
+- En la exhaustiva las operaciones se multiplican por 2ⁿ exactamente: de 8 a 16 lotes pasan de 256 a 65.536 subconjuntos, o sea 256 veces. En el tiempo el factor es parecido (234 y 1.821 contra los 512 y 2.048 que da Θ(n·2ⁿ)). No salen idénticos porque con tiempos tan chiquitos el ruido pesa, pero el orden de magnitud es el esperado. En la gráfica de tiempo es una recta en escala log, o sea una exponencial, y llega a 1,2 s con solo 20 lotes.
+- La PD con W fija es lineal en n. Al duplicar n las operaciones se duplican exacto (2,00) y el tiempo da entre 1,91 y 1,99. En la gráfica de n grande la curva sube despacio, de 0,012 s con 50 lotes a 0,18 s con 800.
+- En n pequeño la PD crece más de 2× al duplicar n, pero no es un error. Ahí W es el 40 % del peso total y también se duplica, entonces la tabla (n+1)·(W+1) crece cerca de 4×, y el 4,96 que sale incluye que W creció un poco más que el doble.
+- Con W creciente la PD también es lineal. En la gráfica de capacidad los puntos quedan casi sobre una recta, y las celdas pasan de 150.300 con 500 kg a 2.400.300 con 8.000 kg, o sea 16 veces más celdas para 16 veces más capacidad.
+- Las reglas voraces tardan microsegundos, y ahí el ruido del sistema domina. Por eso sus factores de tiempo salen desordenados, entre 0,4 y 2,3, y en la gráfica sus curvas suben y bajan sin tendencia clara (por ejemplo el pico en n = 400). Las operaciones de la voraz por densidad sí dan lineales (se duplican). La regla actual cuenta pocas operaciones (unas 20) porque se detiene en el primer lote que no cabe.
+- Las curvas de la PD y la exhaustiva se cruzan. En tiempo pasa entre n = 8 y n = 10, y en operaciones un poquito después, alrededor de n = 14 (ahí la exhaustiva ya hace más de 16.000 subconjuntos contra 13.600 celdas de la PD). A partir de ahí la exhaustiva se dispara y la PD casi no se mueve.
+
+#### Extrapolación al volumen real
+
+El peor caso del banco son 14 vehículos con 600 lotes y 4.000 kg. Con la forma de cada curva, no con una regla de tres sobre un tiempo total, estimamos:
+
+| Solución | Cómo se estima | Resultado |
+|---|---|---|
+| PD | 7,67×10⁻⁸ s por celda × 33.608.400 celdas | ≈ 2,6 s (0,0007 h) |
+| PD, medición directa de las 14 rutas | tiempo total medido | 1,55 s |
+| Regla actual | medición directa | ≈ 0,001 s |
+| Exhaustiva | tiempo por paso × n × 2⁶⁰⁰ | ≈ 10¹⁷⁷ s, no termina |
+
+Hay que tener claro que son estimaciones. Para la PD usamos el tiempo por celda medido con n = 800 y lo multiplicamos por las celdas del peor caso, porque su costo es Θ(n·W). Para la exhaustiva usamos el tiempo por paso medido con n = 20 y lo escalamos con la forma exponencial Θ(n·2ⁿ). La medición directa de las 14 rutas da menos (1,55 s) porque no todas las rutas son del peor caso, la extrapolación supone que las 14 rutas tienen 600 lotes y 4.000 kg.
+
+La PD en el peor caso usa unos 2,6 s de una ventana de 2 h (7.200 s), o sea cerca del 0,04 %. Y esa ventana la comparten las operaciones 1 a 3, pero el cargue casi no le quita nada. La exhaustiva, en cambio, no terminaría ni en la edad del universo, que es de unos 4×10¹⁷ s: 10¹⁷⁷ s es unas 10¹⁵⁹ veces eso.
 
 ### 4.4 Segunda operación
 
@@ -220,15 +272,23 @@ Además, [`medicion.py`](src/cargue_vehiculos/medicion.py) vuelve a comprobar de
 
 ### 5.1 Operación 3 — Limitación de la regla actual: contraejemplo
 
-<!-- SECCION-CRISTIAN-CONTRAEJEMPLO: Cristian reemplaza este comentario con su sección -->
 
 ### 5.2 Operación 3 — Condición contraria
 
-<!-- SECCION-CRISTIAN-CONDICION: Cristian reemplaza este comentario con su sección -->
 
 ### 5.3 Operación 3 — Recomendación
 
-<!-- SECCION-SAMUEL-RECOMENDACION: Samuel reemplaza este comentario con su sección -->
+Recomendamos que el banco cargue cada vehículo con la mochila 0/1 resuelta por programación dinámica.
+
+Lo que gana el banco se ve en las 14 rutas con datos sintéticos. La regla actual carga solo el 42,3 % del valor óptimo (322.928 contra 762.836) y usa el 97,1 % de la capacidad. La PD usa el 100 % y lleva más del doble de valor nutricional. Es decir, la regla actual casi llena los vehículos pero los llena con lotes de poco valor nutricional. Recordemos que con datos reales ese 97 % sería más bajo, el banco reporta 78 %, pero lo del valor perdido se mantiene.
+
+Podría parecer que la voraz por densidad alcanza, porque en las 14 rutas llega al 99,9 % del óptimo (762.127). Aun así no la recomendamos. La restricción del caso pide el máximo y no una aproximación, en el contraejemplo se muestra que esta regla pierde un 25 % del valor en esa instancia (30 contra 40), que en nuestros datos haya salido tan cerca no garantiza que pase siempre.
+
+Riesgos y límites:
+
+- **El costo crece con W.** La PD es Θ(n·W) en tiempo y en espacio. Si el banco midiera los pesos en gramos, W pasaría de 4.000 a 4.000.000 y la tabla sería 1.000 veces más grande, y ahí ya no sería tan cómodo. Por eso conviene seguir en kilos enteros.
+- **Si el banco crece.** Si se duplicaran los lotes por ruta y los vehículos, tendríamos unas 4 veces más celdas, o sea alrededor de 10 s según la extrapolación. Sigue cabiendo de sobra en la ventana de 2 h.
+- **No respeta el vencimiento por sí sola.** La PD maximiza el valor nutricional y nada más, así que no asegura que los lotes próximos a vencer salgan primero. Si eso es importante para el banco, habría que meterlo en el valor de cada lote o combinarlo con el ordenamiento de la operación 2.
 
 ### 5.4 Comparación entre las estrategias de las dos operaciones
 
@@ -238,7 +298,21 @@ Además, [`medicion.py`](src/cargue_vehiculos/medicion.py) vuelve a comprobar de
 
 ### 6.1 Consumo energético — Operación 3
 
-<!-- SECCION-SAMUEL-ENERGIA: Samuel reemplaza este comentario con su sección -->
+Para estimar la energía usamos kWh = kW × h con 0,15 kW, que es la potencia del computador del caso. El tiempo diario es el que sacamos en la sección 4.3 y el año lo contamos con 300 días de operación.
+
+| Solución | Tiempo diario | Energía diaria | Energía anual |
+|---|---|---|---|
+| PD | ≈ 2,6 s | ≈ 0,000107 kWh | ≈ 0,032 kWh |
+| Regla actual | ≈ 0,001 s | ≈ 0,00000005 kWh | ≈ 0,00002 kWh |
+| Exhaustiva | no termina (≈ 10¹⁷⁷ s) | indefinida (≈ 10¹⁷⁷ s × 0,15 kW) | inviable |
+| Diferencia anual PD − regla | | | ≈ +0,032 kWh |
+
+Algunas aclaraciones:
+
+- Son estimaciones. Es el tiempo extrapolado por la potencia nominal del computador, y no medimos el consumo real.
+- Los 300 días de operación al año son un supuesto nuestro, no un dato del caso.
+- La PD gasta algo más que la regla actual, pero la diferencia (unos 0,03 kWh al año) es despreciable.
+- El impacto ambiental que de verdad importa está en la comida que se aprovecha y no se desperdicia, no en el cómputo.
 
 ### 6.2 Preguntas de impacto del caso (personas, normativa, crecimiento)
 
