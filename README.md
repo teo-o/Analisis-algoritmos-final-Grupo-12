@@ -212,7 +212,7 @@ Además, [`medicion.py`](src/cargue_vehiculos/medicion.py) vuelve a comprobar de
 
 Para medir usamos [`medicion.py`](src/cargue_vehiculos/medicion.py), que genera los lotes con [`datos.py`](src/cargue_vehiculos/datos.py) y la semilla 2026. En cada tamaño las cuatro soluciones corren sobre las mismas instancias, así la comparación es justa. El `time.perf_counter()` solo va alrededor de la llamada a cada solución (nunca de la generación de datos) y cada medición se repite 5 veces y se saca el tiempo medio. Todo queda guardado en [`mediciones.csv`](graficas/cargue_vehiculos/mediciones.csv) y en [`resumen_mediciones.md`](graficas/cargue_vehiculos/resumen_mediciones.md).
 
-Además del tiempo contamos operaciones elementales, que no dependen del computador. Para la PD es una celda de la tabla, para la exhaustiva un subconjunto explorado y para las reglas voraces un lote revisado.
+Además del tiempo contamos operaciones elementales, que no dependen del computador. Para la PD es una celda de la tabla, para la exhaustiva un subconjunto explorado y para las reglas voraces un lote revisado. En las reglas voraces ese contador no incluye el ordenamiento previo (por fecha o por densidad), que hace `sorted()` de Python en Θ(n log n). Por eso en la gráfica de operaciones sus curvas salen bajas (la regla actual, casi plana en unos 20 lotes porque se detiene pronto), aunque su complejidad total sea Θ(n log n), como dice la sección 4.1.
 
 Hicimos cuatro experimentos:
 
