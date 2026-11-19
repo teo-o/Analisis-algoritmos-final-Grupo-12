@@ -231,14 +231,14 @@ Hicimos cuatro experimentos:
 
 Para comparar con la teoría tomamos parejas donde el segundo tamaño es el doble del primero y miramos cuánto se multiplicaron el tiempo y las operaciones.
 
-| Solución | Pareja | Factor tiempo | Factor operaciones | Teoría |
-|---|---|---:|---:|---|
-| Exhaustiva | n 8 → 16 | 234 | 256 | 2⁸ = 256 en operaciones |
-| Exhaustiva | n 10 → 20 | 1.821 | 1.024 | 2·2¹⁰ = 2.048 en tiempo |
-| PD | n 100 → 200 (W fija) | 1,91 | 2,00 | 2 |
-| PD | n 300 → 600 (W fija) | 1,96 | 2,00 | 2 |
-| PD | n 400 → 800 (W fija) | 1,99 | 2,00 | 2 |
-| PD | n 8 → 16 (W también crece) | 3,60 | 4,96 | ≈ 5 |
+| Solución | Pareja | Factor tiempo | Esperado en tiempo | Factor operaciones | Esperado en operaciones |
+|---|---|---:|---:|---:|---:|
+| Exhaustiva | n 8 → 16 | 234 | 2·2⁸ = 512 | 256 | 2⁸ = 256 |
+| Exhaustiva | n 10 → 20 | 1.821 | 2·2¹⁰ = 2.048 | 1.024 | 2¹⁰ = 1.024 |
+| PD | n 100 → 200 (W fija) | 1,91 | 2 | 2,00 | 2 |
+| PD | n 300 → 600 (W fija) | 1,96 | 2 | 2,00 | 2 |
+| PD | n 400 → 800 (W fija) | 1,99 | 2 | 2,00 | 2 |
+| PD | n 8 → 16 (W también crece ≈ 2,48×) | 3,60 | ≈ 5 | 4,96 | ≈ 5 |
 
 Lo que se ve:
 
@@ -272,8 +272,35 @@ La PD en el peor caso usa unos 2,6 s de una ventana de 2 h (7.200 s), o sea cerc
 
 ### 5.1 Operación 3 — Limitación de la regla actual: contraejemplo
 
+Para mostrar que la regla actual no da el máximo basta una instancia pequeña. Tomamos un vehículo de **W = 10 kg** y tres lotes:
+
+| Lote | Peso (kg) | Valor | Días para vencer | Densidad (valor/kg) |
+|---|---:|---:|---:|---:|
+| A (índice 0) | 6 | 30 | 1 | 5,0 |
+| B (índice 1) | 5 | 20 | 2 | 4,0 |
+| C (índice 2) | 5 | 20 | 3 | 4,0 |
+
+| Estrategia | Qué hace | Lotes cargados | Peso | Valor |
+|---|---|---|---:|---:|
+| Regla actual (vencimiento) | A vence primero y sube (6 kg). B no cabe (6 + 5 = 11 > 10), así que **se detiene** y ni siquiera mira C | A | 6 kg (60 %) | 30 |
+| Voraz por densidad | A tiene la mayor densidad y sube. Después B y C ya no caben | A | 6 kg (60 %) | 30 |
+| Programación dinámica | Compara todas las capacidades y encuentra que B + C llenan el vehículo | B + C | 10 kg (100 %) | **40** |
+
+Las dos reglas voraces cargan 30 cuando se podía llevar 40: pierden 10 unidades de valor, un **25 %** menos que el óptimo, y dejan 4 kg del vehículo vacíos. Esta misma instancia está en [`pruebas.py`](src/cargue_vehiculos/pruebas.py) (`CONTRAEJEMPLO`), y el `assert` comprueba los tres resultados.
+
+La regla actual falla por dos razones. La primera es que solo mira la fecha de vencimiento y nunca el valor nutricional. La segunda es que se detiene en el primer lote que no cabe, aunque detrás haya lotes que sí entrarían. La voraz por densidad corrige la primera falla, porque sí mira el valor por kilo, pero tiene otro problema: como los lotes no se pueden partir, escoger primero el lote "más rendidor" puede ocupar un espacio que dos lotes un poco menos rendidores aprovechan mejor. Eso es justo lo que pasa con A frente a B + C.
+
+Con datos de volumen real se ve lo mismo a mayor escala. En las 14 rutas sintéticas de la sección 4.3, la regla actual llena el 97,1 % de la capacidad pero lleva solo el **42,3 %** del valor óptimo (322.928 contra 762.836). O sea, llenar el vehículo no es lo mismo que llevar el máximo valor. La voraz por densidad llegó al 99,9 % en esas rutas, pero el contraejemplo muestra que no lo garantiza.
+
+Hay que reconocer que la regla actual protege algo que la PD no tiene en cuenta: que salga primero lo que vence primero (FEFO). Cómo combinar las dos cosas lo dejamos planteado en la recomendación (5.3).
 
 ### 5.2 Operación 3 — Condición contraria
+
+La estrategia voraz por densidad **sí sería la adecuada si los lotes se pudieran fraccionar**, es decir, si se pudiera llevar solo una parte de un lote (por ejemplo, 3 de los 5 kg de un producto a granel). Ese problema es la mochila fraccionaria. Ahí cargar por mayor valor por kilo y partir el último lote que no cabe completo siempre da el óptimo, porque cada kilo libre se llena con el mejor valor por kilo que quede y nunca sobra espacio. En el contraejemplo daría A completo (30) más 4 de los 5 kg de B (16), en total 46. Bastaría ordenar, en Θ(n log n), sin necesidad de la tabla.
+
+Otro caso en que la voraz sería óptima es si **todos los lotes pesaran lo mismo**: cargar los de mayor valor hasta llenar el vehículo da el máximo, porque cualquier lote ocupa el mismo espacio que otro.
+
+En el banco no se cumple ninguna de las dos condiciones. El caso dice explícitamente que un lote no se fracciona: sube completo o no sube, porque son cajas y empaques con trazabilidad sanitaria. Además, los pesos de los lotes son muy distintos entre sí. Por eso el problema es una mochila 0/1 y hace falta la programación dinámica para garantizar el máximo.
 
 
 ### 5.3 Operación 3 — Recomendación
@@ -310,7 +337,7 @@ Para estimar la energía usamos kWh = kW × h con 0,15 kW, que es la potencia de
 Algunas aclaraciones:
 
 - Son estimaciones. Es el tiempo extrapolado por la potencia nominal del computador, y no medimos el consumo real.
-- Los 300 días de operación al año son un supuesto nuestro, no un dato del caso.
+- Los 300 días de operación al año son un dato del caso ("operación de 12 horas diarias, 300 días al año").
 - La PD gasta algo más que la regla actual, pero la diferencia (unos 0,03 kWh al año) es despreciable.
 - El impacto ambiental que de verdad importa está en la comida que se aprovecha y no se desperdicia, no en el cómputo.
 
