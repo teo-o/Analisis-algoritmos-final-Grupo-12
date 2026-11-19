@@ -1,4 +1,16 @@
 
+"""Experimentos, gráficas y extrapolación del cargue de vehículos.
+
+Responsable: Samuel Arango Montoya.
+
+Ejecución, desde la raíz del repositorio:
+    python src/cargue_vehiculos/medicion.py
+
+Genera en ``graficas/cargue_vehiculos/``: ``tiempo_vs_n.png``,
+``operaciones_vs_n.png``, ``tiempo_vs_capacidad.png``, ``mediciones.csv`` y
+``resumen_mediciones.md`` (las tablas en Markdown que se copian al informe).
+"""
+
 import contextlib
 import csv
 import io
