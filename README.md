@@ -173,9 +173,39 @@ Reconstrucción desde `(5, 10)`:
 
 Con este ejemplo se ve que la tabla llega al mismo resultado que probar las 2⁵ = 32 combinaciones posibles. Con tan pocos lotes la tabla no ahorra trabajo (55 celdas contra 32 combinaciones de hasta 5 sumas cada una), pero la ventaja aparece cuando n crece: con 600 lotes son unos 2,4 millones de celdas contra 2⁶⁰⁰ combinaciones. El ejemplo también muestra que la regla por vencimiento deja por fuera a L0 (2 kg), que todavía cabía.
 
-### 2.3 Segunda operación
+### 2.3 Operación 4 — Saturación de la bodega: dividir y vencer y programación dinámica (Kadane)
 
-> Pendiente para la entrega del 23 de noviembre.
+#### Entradas, salida y restricciones
+
+| Elemento | Detalle | Unidades / límites del caso |
+|---|---|---|
+| Entrada | Serie de cambios netos del inventario de una categoría, hora por hora (entradas menos salidas/descartes) | Entero en kg, puede ser negativo; ≈ 36.000 horas por categoría (10 años × 300 días × 12 h) |
+| Salida | El tramo de horas consecutivas con mayor crecimiento acumulado: `(crecimiento, hora_inicio, hora_fin)` | Kg y posiciones dentro de la serie |
+| Restricción 1 | El tramo es el de **mayor** crecimiento, no una aproximación | Exactitud |
+| Restricción 2 | La serie original no se modifica | Trazabilidad |
+| Volumen | 40 categorías | PC de 150 W, un solo hilo |
+
+Para esta operación, partimos del supuesto de que el tramo no puede estar vacío. Si todas las horas registraron pérdidas (valores negativos), reportamos la hora en que la pérdida fue menor. Además, si la serie no tiene datos, simplemente se rechaza. Cabe notar que este análisis no se ejecuta todas las madrugadas, sino a petición de la Dirección para tomar decisiones sobre el cuarto frío.
+
+#### Estrategia actual
+
+Actualmente, el banco utiliza un programa que evalúa exhaustivamente todos los tramos posibles. Lo hemos replicado de dos maneras: la primera es literal, sumando cada tramo desde cero con una complejidad de Θ(n³). La segunda es una versión mejorada que reutiliza la suma del tramo anterior, logrando Θ(n²). Aunque son lentas, ambas estrategias nos garantizan exactitud y nos sirven como línea base para comprobar la validez de los algoritmos más eficientes.
+
+#### ¿Por qué podemos aplicar la técnica "Dividir y Vencer"?
+
+La naturaleza del problema nos permite dividir la serie en dos mitades. Al hacerlo, el tramo con el mayor crecimiento solo puede encontrarse en uno de tres lugares: completamente a la izquierda, completamente a la derecha, o cruzando el centro de las dos mitades.
+Los dos primeros escenarios son idénticos al problema original, pero con la mitad de datos, por lo que podemos aplicar recursión. El tercer escenario se soluciona expandiendo la búsqueda desde el centro hacia los lados en tiempo lineal. Finalmente, el resultado es simplemente el mayor de estos tres casos.
+
+La recurrencia de esto se expresa como: T(n) = 2T(n/2) + Θ(n), con un caso base de T(1) = Θ(1). Al aplicar el teorema maestro (con a = 2, b = 2 y f(n) = Θ(n) = Θ(n^(log₂ 2)), que es el caso 2), obtenemos que T(n) = Θ(n log n). En cuanto a memoria, ocupamos Θ(log n) debido a la pila de llamadas de la recursión, ya que operamos con índices en la misma lista original sin hacer copias.
+
+#### ¿Por qué Kadane (Programación Dinámica) es otra opción válida?
+
+Podemos definir `mejor_aqui(j)` como el mayor crecimiento posible en un tramo que concluya específicamente en la hora `j`. Este tramo puede estar compuesto solo por esa hora `j`, o ser la continuación del mejor tramo que terminaba en `j − 1`. Esta característica es lo que conocemos como subestructura óptima, y genera la siguiente recurrencia:
+
+```text
+mejor_aqui(0) = cambios[0]
+mejor_aqui(j) = max( cambios[j], mejor_aqui(j-1) + cambios[j] )
+respuesta     = max sobre j de mejor_aqui(j)
 
 ## 3. Implementación
 
@@ -362,9 +392,26 @@ Riesgos y límites:
 - **Si el banco crece.** Si se duplicaran los lotes por ruta y los vehículos, tendríamos unas 4 veces más celdas, o sea alrededor de 10 s según la extrapolación. Sigue cabiendo de sobra en la ventana de 2 h.
 - **No respeta el vencimiento por sí sola.** La PD maximiza el valor nutricional y nada más, así que no asegura que los lotes próximos a vencer salgan primero. Si eso es importante para el banco, habría que meterlo en el valor de cada lote o combinarlo con el ordenamiento de la operación 2.
 
-### 5.4 Comparación entre las estrategias de las dos operaciones
+### 5.4 Contrastando las Operaciones 3 y 4
 
-> Pendiente para la entrega del 23 de noviembre.
+| Operación | Estrategia | Enfoque | Complejidad (Tiempo) | Memoria | ¿Garantiza Óptimo? | Rendimiento con volumen real |
+|---|---|---|---|---|---|---|
+| 3. Cargue | **Mochila 0/1** | Programación dinámica | Θ(n·W) | Θ(n·W) | Sí | ≈ 2,6 s para 14 vehículos |
+| 3. Cargue | Exhaustiva | Fuerza bruta | Θ(n·2ⁿ) | Θ(n) | Sí | Se queda procesando infinitamente |
+| 3. Cargue | Regla de vencimiento | Voraz | Θ(n log n) | Θ(n) | No (alcanza ≈ 42% del óptimo) | Milisegundos |
+| 3. Cargue | Regla de densidad | Voraz | Θ(n log n) | Θ(n) | No (99.9% general, pero cae al 75% en contraejemplos) | Milisegundos |
+| 4. Saturación | **Kadane** | Programación dinámica | Θ(n) | Θ(1) | Sí | ≈ 0,2 s para 40 categorías |
+| 4. Saturación | Dividir y Vencer | Recursivo (D&V) | Θ(n log n) | Θ(log n) | Sí | ≈ 5 s para 40 categorías |
+| 4. Saturación | Cuadrática | Fuerza bruta optimizada| Θ(n²) | Θ(1) | Sí | ≈ 53 minutos |
+| 4. Saturación | Cúbica (actual) | Fuerza bruta | Θ(n³) | Θ(1) | Sí | Meses en Python; > 1 día en sistema del banco |
+
+Estas dos operaciones nos presentan desafíos distintos. Para el **cargue (Op. 3)**, las reglas voraces, aunque veloces, fallan porque no podemos fraccionar los lotes. Esto nos obliga a usar Programación Dinámica (Mochila 0/1) para asegurar el resultado óptimo, aceptando un costo computacional ligado a la capacidad W. Por el contrario, en la **saturación (Op. 4)**, las opciones eficientes sí entregan el resultado exacto, por lo que la decisión se basa puramente en la velocidad y el consumo de recursos.
+
+Para la Operación 4, nuestra recomendación definitiva es el algoritmo de **Kadane**. Frente a Dividir y Vencer, Kadane es significativamente más veloz (casi 30 veces más rápido en nuestras pruebas), su consumo de memoria es mínimo y el código es mucho más simple. Además, al procesar la información en una sola pasada, podría integrarse en tiempo real para actualizar la saturación hora a hora. Dividir y Vencer solo sería competitivo si el banco contara con procesamiento en paralelo, lo cual no aplica en este caso.
+
+En cuanto al uso de la Programación Dinámica en ambas soluciones: en el cargue, nos vemos obligados a mantener una tabla de tamaño n × W porque cada decisión impacta las combinaciones futuras. En Kadane, en cambio, la simplicidad del problema nos permite descartar los datos previos y quedarnos solo con el estado de la hora inmediatamente anterior.
+
+**Conclusión para la Dirección del Banco:** Implementar el algoritmo de la Mochila 0/1 para el despacho de camiones, y Kadane para monitorear la saturación de la bodega. Ambos garantizan el máximo absoluto en cuestión de segundos, incluso con el volumen histórico completo. Esto soluciona de inmediato los desbordamientos nocturnos en el procesamiento, dejando como próximos pasos la optimización de las estructuras de datos (Operaciones 1 y 2).
 
 ## 6. Implicaciones éticas, sociales y ambientales
 
