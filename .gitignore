@@ -14,3 +14,7 @@ entregas_lab4/
 Thumbs.db
 .vscode/
 .idea/
+
+# Entrega final: paquetes de reparto y HTML temporal del PDF
+entregas_final/
+informe_final.html
