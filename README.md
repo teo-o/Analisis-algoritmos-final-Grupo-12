@@ -9,7 +9,7 @@
 - Jhon Alejandro Isaza Pérez
 - Samuel Arango Montoya
 
-**Estado:** entrega del Laboratorio 4 (18 de noviembre de 2026): operación 3, cargue de los vehículos (mochila 0/1 por programación dinámica). Lo marcado como pendiente se completa para la entrega del 23 de noviembre.
+**Estado:** entrega final del proyecto (23 de noviembre de 2026). Operaciones trabajadas: 3, cargue de los vehículos (mochila 0/1 por programación dinámica), y 4, saturación de la bodega (dividir y vencer y programación dinámica con Kadane). El informe en PDF, con el mismo contenido de este README, está en [`informe_final.pdf`](informe_final.pdf).
 
 ---
 
@@ -17,7 +17,20 @@
 
 ### 1.1 Descripción del problema computacional
 
-> Pendiente para la entrega del 23 de noviembre (proceso completo de las cuatro operaciones).
+El Banco Regional de Alimentos recibe donaciones de supermercados, industria y productores del campo (muchas próximas a vencer) y las reparte a 420 organizaciones: comedores comunitarios, hogares de adultos mayores, jardines infantiles y fundaciones. Cada madrugada un proceso planea los despachos del día: qué lotes salen, en qué orden y en qué vehículo. La operación creció más del doble en tres años y la planeación, que debe caber entre las 03:00 y las 05:00, hoy tarda cerca de 4 horas y media. Por eso los vehículos salen tarde, las organizaciones reciben después de preparar sus comidas y parte de los perecederos se vence en la bodega.
+
+El proceso tiene cuatro operaciones, y cada una es un problema computacional distinto:
+
+| # | Operación | Entrada | Salida | Restricción principal |
+|---|---|---|---|---|
+| 1 | Consulta de inventario | ≈ 220.000 lotes activos; ≈ 30.000 consultas por código al día y consultas por rango de vencimiento | el lote con ese código, o los lotes que vencen en el rango | una consulta por código responde en menos de 1 s |
+| 2 | Ordenamiento FEFO | la lista del día anterior, ya ordenada, más 6.000 a 9.000 lotes nuevos al final | los lotes ordenados por vencimiento y, a igual fecha, por categoría | ningún lote vencido sale; dentro de una categoría sale primero el que vence primero |
+| 3 | Cargue de los vehículos | 300 a 600 lotes candidatos por ruta (peso, valor); 14 vehículos de 2.500 a 4.000 kg | los lotes que suben a cada vehículo | no superar la capacidad; valor nutricional máximo, no una aproximación |
+| 4 | Análisis de saturación | por cada una de las 40 categorías, el cambio neto del inventario hora por hora (≈ 36.000 horas) | el tramo de horas consecutivas de mayor crecimiento | el tramo es el de mayor crecimiento, no una aproximación |
+
+Las operaciones 1 a 3 corren cada madrugada dentro de la ventana de 2 horas, en un computador de escritorio de 150 W y sin procesamiento en paralelo. La operación 4 es un análisis que la Dirección necesita para dimensionar el cuarto frío que piensa alquilar en temporada. En todas, el registro original de cada lote no se puede modificar, por la trazabilidad sanitaria.
+
+Trabajamos dos operaciones. La **3 (cargue de los vehículos)** admite programación dinámica y fue el Laboratorio 4. La **4 (saturación de la bodega)** es la de mayor costo computacional de todo el proceso (sección 1.3) y admite dividir y vencer y programación dinámica. Las operaciones 1 y 2 quedan analizadas en la sección 1.3 y como recomendación para una siguiente fase.
 
 ### 1.2 Operación 3 — Cargue de los vehículos: entradas, salida y restricciones
 
@@ -38,7 +51,26 @@ En vez de devolver lotes nuevos o modificados, lo que entregamos son las posicio
 
 ### 1.3 Operaciones críticas del proceso y costo energético actual (línea base)
 
-> Pendiente para la entrega del 23 de noviembre.
+| # | Estrategia actual | Costo | Tamaño real | Trabajo aproximado |
+|---|---|---|---|---|
+| 1 | El inventario es una lista y cada consulta la recorre completa | Θ(n) por consulta; Θ(q·n) al día | n ≈ 220.000 lotes; q ≈ 30.000 consultas | hasta ≈ 6.600 millones de comparaciones por noche |
+| 2 | Ordenamiento por inserción sobre la lista de ayer con los nuevos al final | Θ(n·k) en el peor caso: cada lote nuevo puede recorrer toda la lista | n ≈ 220.000; k ≈ 9.000 nuevos | hasta ≈ 2.000 millones de comparaciones por noche |
+| 3 | El coordinador carga por vencimiento hasta que no cabe el siguiente lote | Θ(n log n) | 14 rutas de 300 a 600 lotes | milisegundos; el problema es la calidad: lleva ≈ 42 % del valor óptimo (5.1) |
+| 4 | Evalúa todos los tramos posibles, sumando cada uno desde cero | Θ(n³) | 40 categorías × 36.000 horas | ≈ 7,8 billones de sumas por categoría; más de un día de cómputo según el banco |
+
+De las cuatro, **la operación 4 es la más costosa**: el banco reporta que tarda más de un día para las 40 categorías, y nuestra fuerza bruta cúbica, medida y extrapolada, tardaría meses en Python (sección 4.4). Dentro de la ventana nocturna, las más costosas son la **1 y la 2**: juntas suman miles de millones de comparaciones cada madrugada. La regla actual de la **3**, en cambio, tarda milisegundos; su problema no es el tiempo sino que no carga el máximo valor.
+
+Los conteos de las operaciones 1 y 2 son estimaciones a partir de la complejidad y de los volúmenes del caso, no mediciones nuestras, porque esas dos operaciones no las implementamos.
+
+**Línea base energética del proceso actual** (kWh = kW × h, con 0,15 kW):
+
+| Proceso actual | Tiempo | Energía por vez | Veces al año | Energía al año |
+|---|---|---|---|---|
+| Planeación de la madrugada (operaciones 1 a 3) | ≈ 4,5 h (dato del banco) | 4,5 h × 0,15 kW ≈ 0,675 kWh | 300 días de operación | ≈ 202,5 kWh |
+| Análisis de saturación (operación 4) | más de 24 h (dato del banco) | más de 3,6 kWh | 1 vez al año (supuesto nuestro) | más de 3,6 kWh |
+| **Total** | | | | **más de 206 kWh al año** |
+
+Esta es la línea base contra la que comparamos las propuestas en la sección 6.1. Suponemos que el análisis de saturación se corre una vez al año, porque sirve para decidir el alquiler del cuarto frío de cada temporada.
 
 ### 1.4 Supuestos
 
@@ -52,7 +84,20 @@ En vez de devolver lotes nuevos o modificados, lo que entregamos son las posicio
 
 ### 2.1 Estructuras de datos seleccionadas
 
-> Pendiente para la entrega del 23 de noviembre.
+| Dato | Estructura | Por qué |
+|---|---|---|
+| Lotes candidatos de una ruta (op. 3) | lista de tuplas `(peso_kg, valor, días_para_vencer)` | acceso por índice en O(1); la programación dinámica recorre los lotes en orden; las tuplas no se pueden modificar, lo que protege el registro original |
+| Tabla de la programación dinámica (op. 3) | lista de listas de (n + 1) × (W + 1) enteros | cada celda se lee en O(1); se guarda completa porque la reconstrucción de los lotes elegidos necesita todas las filas |
+| Resultado del cargue (op. 3) | `(valor, lista de índices)` | devolvemos posiciones, no copias ni lotes modificados (trazabilidad) |
+| Serie de una categoría (op. 4) | lista de enteros, kg por hora | se recorre en orden y el acceso por índice O(1) permite dividirla en mitades sin copiarla |
+| Estado de Kadane (op. 4) | tres variables: `mejor_aqui`, `inicio_aqui` y `mejor` | memoria Θ(1): cada paso solo necesita el valor de la hora anterior |
+| Recursión de dividir y vencer (op. 4) | pila de llamadas de profundidad ⌈log₂ n⌉ | unos 16 niveles para 36.000 horas; trabaja con índices sobre la misma lista, sin copiar mitades |
+| Resultado del tramo (op. 4) | tupla `(crecimiento, inicio, fin)` | identifica el tramo sin modificar la serie |
+
+Para las operaciones que no implementamos, la sección 1.3 muestra que la estructura es justamente el problema. Recomendamos, para una siguiente fase:
+
+- **Operación 1:** un diccionario (tabla hash) de código → lote, para que cada consulta por código cueste O(1) en promedio en vez de recorrer 220.000 lotes, y una lista ordenada por fecha de vencimiento con búsqueda binaria para las consultas por rango, en O(log n + k), donde k es el número de lotes que vencen en el rango.
+- **Operación 2:** ordenar solo los k lotes nuevos, en Θ(k log k), y mezclarlos con la lista de ayer, que ya está ordenada, en Θ(n + k), en lugar del ordenamiento por inserción.
 
 ### 2.2 Operación 3 — Cargue de los vehículos: programación dinámica (mochila 0/1)
 
