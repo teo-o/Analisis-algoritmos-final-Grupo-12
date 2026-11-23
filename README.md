@@ -339,9 +339,60 @@ Hay que tener claro que son estimaciones. Para la PD usamos el tiempo por celda 
 
 La PD en el peor caso usa unos 2,6 s de una ventana de 2 h (7.200 s), o sea cerca del 0,04 %. Y esa ventana la comparten las operaciones 1 a 3, pero el cargue casi no le quita nada. La exhaustiva, en cambio, no terminaría ni en la edad del universo, que es de unos 4×10¹⁷ s: 10¹⁷⁷ s es unas 10¹⁵⁹ veces eso.
 
-### 4.4 Segunda operación
+### 4.4 Operación 4 — Complejidad, experimentos y contraste con la teoría
 
-> Pendiente para la entrega del 23 de noviembre.
+#### Complejidad temporal y espacial
+
+| Estrategia | Tiempo | Espacio adicional | Operaciones con n = 36.000 horas |
+|---|---|---|---:|
+| Fuerza bruta cúbica (programa actual) | Θ(n³) | Θ(1) | n(n + 1)(n + 2)/6 ≈ 7,8 × 10¹² sumas |
+| Fuerza bruta cuadrática | Θ(n²) | Θ(1) | n(n + 1)/2 ≈ 6,5 × 10⁸ sumas |
+| Dividir y vencer | Θ(n log n) | Θ(log n), la pila de recursión | ≈ 582.000 horas sumadas |
+| Kadane | Θ(n) | Θ(1) | 36.000 horas revisadas |
+
+#### Cómo medimos
+
+Usamos [`medicion.py`](src/saturacion_bodega/medicion.py) con series generadas por [`datos.py`](src/saturacion_bodega/datos.py) y la semilla 2026. En cada tamaño todas las soluciones corren sobre la misma serie. Cada medición se repite 7 veces y reportamos la **mediana**, no el promedio, para que una interrupción del sistema operativo en una sola repetición no distorsione el resultado. Los tamaños se duplican de 25 a 204.800 horas, y cada solución se mide hasta donde tarda alrededor de un segundo: la cúbica hasta 400 horas, la cuadrática hasta 3.200, y dividir y vencer y Kadane hasta 204.800. En cada tamaño se verifica que todas las soluciones que corren encuentran el mismo crecimiento. Los datos quedan en [`mediciones.csv`](graficas/saturacion_bodega/mediciones.csv) y [`resumen_mediciones.md`](graficas/saturacion_bodega/resumen_mediciones.md).
+
+![Tiempo frente a n, operación 4](graficas/saturacion_bodega/tiempo_vs_n.png)
+
+![Operaciones frente a n, operación 4](graficas/saturacion_bodega/operaciones_vs_n.png)
+
+Las dos gráficas usan escala logarítmica en los dos ejes. Así, una complejidad Θ(n^k) se ve como una recta de pendiente k, y se puede leer directamente: la cúbica sube con pendiente 3, la cuadrática con pendiente 2, y dividir y vencer y Kadane con pendiente cercana a 1.
+
+#### Lo medido contra lo esperado
+
+Como cada tamaño es el doble del anterior, cada par de puntos seguidos es una duplicación. Reportamos la mediana de los factores de todas las duplicaciones en que el tiempo pasa de 1 ms, porque por debajo de eso el ruido domina.
+
+| Estrategia | Factor de tiempo al duplicar n (mediana) | Factor de operaciones al duplicar n | Esperado por la complejidad |
+|---|---:|---:|---:|
+| Fuerza bruta cúbica | 8,45 | 7,94 | 2³ = 8 |
+| Fuerza bruta cuadrática | 4,32 | 4,00 | 2² = 4 |
+| Dividir y vencer | 2,06 | 2,11 | un poco más de 2 (2 · log 2n / log n) |
+| Kadane | 2,09 | 2,00 | 2 |
+
+Lo que se ve:
+
+- Las operaciones coinciden con la teoría casi exactamente: 7,94 y 4,00 son los cocientes de las fórmulas de conteo, y en dividir y vencer el factor 2,11 refleja el término log n.
+- Los tiempos siguen la misma tendencia, con variaciones del ruido del computador: la cuadrática dio 4,32 en vez de 4 y Kadane 2,09 en vez de 2. Las diferencias vienen del ruido del computador, que pesa más cuando los tiempos son de pocos milisegundos.
+- Con el mismo n, Kadane es unas 29 veces más rápida que dividir y vencer (0,011 s contra 0,32 s con 204.800 horas). Las dos crecen casi igual, pero dividir y vencer hace más trabajo por hora: llamadas recursivas, el recorrido del tramo que cruza y el factor log n.
+- Con series muy cortas el orden cambia: con 25 horas la cuadrática todavía es más rápida que dividir y vencer, por el costo fijo de la recursión; desde unas 50 horas dividir y vencer ya gana y la diferencia no deja de crecer.
+- La cúbica tarda 0,40 s con solo 400 horas; la cuadrática, 0,29 s con 3.200; dividir y vencer y Kadane procesan 204.800 horas en menos de un segundo.
+
+#### Extrapolación al volumen real (40 categorías × 36.000 horas)
+
+| Estrategia | Cómo se estima | Tiempo para las 40 categorías |
+|---|---|---:|
+| Fuerza bruta cúbica (actual) | tiempo por suma medido con n = 400 × 7,8 × 10¹² sumas × 40 | ≈ 132 días |
+| Fuerza bruta cuadrática | tiempo por suma medido con n = 3.200 × 6,5 × 10⁸ sumas × 40 | ≈ 24 min |
+| Dividir y vencer | medición directa de las 40 series de 36.000 horas | ≈ 2,3 s |
+| Kadane | medición directa de las 40 series de 36.000 horas | ≈ 0,07 s |
+
+Son estimaciones: para las fuerzas brutas multiplicamos el tiempo por operación medido por el número exacto de operaciones que harían con 36.000 horas, de acuerdo con su complejidad, no con una regla de tres sobre el tiempo total. Dividir y vencer y Kadane no necesitan extrapolarse, porque los medimos directamente con el volumen real.
+
+El banco dice que su programa actual tarda **más de un día**. Nuestra estimación de la cúbica en Python da más de cuatro meses y la de la cuadrática, menos de una hora; la cifra del banco queda entre las dos, lo que es consistente con un programa que evalúa todos los tramos escrito en un lenguaje más rápido que Python. En cualquier caso la conclusión no cambia: Kadane resuelve las 40 categorías en una fracción de segundo.
+
+Como dato de los resultados: con nuestras series sintéticas, el tramo de mayor crecimiento dura en la mediana unas 1.700 horas de operación (unos 140 días de 12 horas, es decir, una temporada) y acumula entre 46 y 63 toneladas según la categoría. Ese es el tipo de cifra que la Dirección usaría para dimensionar el cuarto frío.
 
 ## 5. Análisis comparativo
 
@@ -400,10 +451,10 @@ Riesgos y límites:
 | 3. Cargue | Exhaustiva | Fuerza bruta | Θ(n·2ⁿ) | Θ(n) | Sí | Se queda procesando infinitamente |
 | 3. Cargue | Regla de vencimiento | Voraz | Θ(n log n) | Θ(n) | No (alcanza ≈ 42% del óptimo) | Milisegundos |
 | 3. Cargue | Regla de densidad | Voraz | Θ(n log n) | Θ(n) | No (99.9% general, pero cae al 75% en contraejemplos) | Milisegundos |
-| 4. Saturación | **Kadane** | Programación dinámica | Θ(n) | Θ(1) | Sí | ≈ 0,2 s para 40 categorías |
-| 4. Saturación | Dividir y Vencer | Recursivo (D&V) | Θ(n log n) | Θ(log n) | Sí | ≈ 5 s para 40 categorías |
-| 4. Saturación | Cuadrática | Fuerza bruta optimizada| Θ(n²) | Θ(1) | Sí | ≈ 53 minutos |
-| 4. Saturación | Cúbica (actual) | Fuerza bruta | Θ(n³) | Θ(1) | Sí | Meses en Python; > 1 día en sistema del banco |
+| 4. Saturación | **Kadane** | Programación dinámica | Θ(n) | Θ(1) | Sí | ≈ 0,07 s para 40 categorías |
+| 4. Saturación | Dividir y Vencer | Recursivo (D&V) | Θ(n log n) | Θ(log n) | Sí | ≈ 2,3 s para 40 categorías |
+| 4. Saturación | Cuadrática | Fuerza bruta optimizada| Θ(n²) | Θ(1) | Sí | ≈ 24 minutos |
+| 4. Saturación | Cúbica (actual) | Fuerza bruta | Θ(n³) | Θ(1) | Sí | ≈ 4 meses en Python; > 1 día en sistema del banco |
 
 Estas dos operaciones nos presentan desafíos distintos. Para el **cargue (Op. 3)**, las reglas voraces, aunque veloces, fallan porque no podemos fraccionar los lotes. Esto nos obliga a usar Programación Dinámica (Mochila 0/1) para asegurar el resultado óptimo, aceptando un costo computacional ligado a la capacidad W. Por el contrario, en la **saturación (Op. 4)**, las opciones eficientes sí entregan el resultado exacto, por lo que la decisión se basa puramente en la velocidad y el consumo de recursos.
 
@@ -415,7 +466,9 @@ En cuanto al uso de la Programación Dinámica en ambas soluciones: en el cargue
 
 ## 6. Implicaciones éticas, sociales y ambientales
 
-### 6.1 Consumo energético — Operación 3
+### 6.1 Consumo energético
+
+#### Operación 3
 
 Para estimar la energía usamos kWh = kW × h con 0,15 kW, que es la potencia del computador del caso. El tiempo diario es el que sacamos en la sección 4.3 y el año lo contamos con 300 días de operación.
 
@@ -433,9 +486,50 @@ Algunas aclaraciones:
 - La PD gasta algo más que la regla actual, pero la diferencia (unos 0,03 kWh al año) es despreciable.
 - El impacto ambiental que de verdad importa está en la comida que se aprovecha y no se desperdicia, no en el cómputo.
 
+#### Operación 4 y proceso completo
+
+| Operación 4 | Tiempo por corrida | Energía por corrida |
+|---|---:|---:|
+| Programa actual, según el banco | más de 24 h | más de 3,6 kWh |
+| Fuerza bruta cúbica, nuestra estimación en Python | ≈ 132 días | ≈ 477 kWh |
+| Kadane (recomendada) | ≈ 0,07 s | ≈ 0,000003 kWh |
+
+Con una corrida al año (supuesto de la sección 1.3), cambiar el programa actual por Kadane ahorra **más de 3,6 kWh al año** tomando la cifra del banco, o cerca de 477 kWh si el programa se comportara como nuestra fuerza bruta cúbica en Python. Si la Dirección quisiera repetir el análisis cada mes, el ahorro se multiplicaría por 12 y Kadane seguiría costando prácticamente nada.
+
+**Proceso completo, un año de operación:**
+
+| Componente | Actual | Con nuestra propuesta |
+|---|---:|---:|
+| Planeación de la madrugada (operaciones 1 a 3) | ≈ 202,5 kWh | ≈ 202,5 kWh (la operación 3 agrega ≈ 0,03 kWh) |
+| Análisis de saturación (operación 4) | más de 3,6 kWh | ≈ 0,000003 kWh |
+| **Total** | **más de 206 kWh** | **≈ 202,5 kWh** |
+
+Hay que ser claros con este resultado: la mayor parte de la energía de la madrugada viene de las operaciones 1 y 2, que no implementamos, así que el ahorro anual medible de nuestra propuesta es pequeño en energía. Si esas dos operaciones se reemplazaran por las estructuras de la sección 2.1, su trabajo bajaría de miles de millones de comparaciones a unos cientos de miles, y casi todos los ≈ 202,5 kWh anuales se podrían ahorrar; esa cifra es una estimación teórica, no una medición nuestra.
+
+El impacto ambiental más grande no está en el computador sino en la comida. El caso indica que cada kilogramo de alimento desechado equivale a 2,5 kg de CO₂ equivalente. Con nuestros datos, la programación dinámica carga unas 2,4 veces el valor nutricional de la regla actual con los mismos viajes, y el análisis de saturación permite dimensionar el frío para la temporada. Como ejemplo ilustrativo: si gracias a eso dejaran de vencerse 100 kg de alimentos al día, se evitarían 250 kg de CO₂ equivalente diarios, unas 75 toneladas al año con 300 días de operación.
+
 ### 6.2 Preguntas de impacto del caso (personas, normativa, crecimiento)
 
-> Pendiente para la entrega del 23 de noviembre.
+**Personas: ¿qué pasa con un jardín infantil que nunca queda en el cargue óptimo?** La programación dinámica maximiza el valor nutricional total del vehículo y nada más. Si los lotes que necesita un jardín infantil tienen poco valor por kilogramo, o su ruta tiene muchos candidatos de más valor, el cargue óptimo puede dejarlos por fuera día tras día sin que nadie lo note. El costo lo pagan los niños, que son la población más vulnerable que atiende el banco. El algoritmo no debe decidir solo qué es justo: esa decisión le corresponde a la Dirección de Operaciones con las organizaciones beneficiarias. Desde el diseño se puede mitigar de tres formas:
+
+- multiplicar el valor de los lotes destinados a población prioritaria (niños y adultos mayores), para que la optimización los favorezca;
+- fijar un mínimo de raciones por organización y por semana, lo que convierte el problema en una mochila con restricciones adicionales;
+- generar un reporte de las organizaciones que llevan varios días sin quedar en el cargue, para que el coordinador lo revise.
+
+**Personas: ¿y si un error en el ordenamiento FEFO despacha un lote vencido?** Lo pagan primero los beneficiarios, con un riesgo para su salud que es mayor en niños y adultos mayores, y después el banco, con sanciones sanitarias y la pérdida de confianza de los donantes. Nuestra solución parte de que los lotes vencidos ya se filtraron antes del cargue (supuesto de la sección 1.4). Para que ese supuesto no dependa de la buena suerte, recomendamos una validación explícita antes de cargar, que rechace cualquier lote con cero días para vencer, y conservar los índices de los lotes cargados para poder rastrear y retirar un lote si hace falta.
+
+**Normativa.** La solución está condicionada por las normas sanitarias de almacenamiento y distribución de alimentos, el rotulado con fecha de vencimiento, la política contra el desperdicio de alimentos y la protección de datos personales, en especial los de menores de edad. La tabla con cada norma, su fuente y cómo la respeta el diseño está en la sección 6.3.
+
+**Crecimiento: ¿qué pasa si el banco abre una segunda bodega y duplica lotes y vehículos?**
+
+| Operación | Efecto de duplicar | Tiempo estimado |
+|---|---|---:|
+| 3. Cargue (programación dinámica) | el doble de candidatos por ruta duplica las filas de la tabla, y el doble de vehículos duplica las tablas: 4 veces más celdas | de ≈ 2,6 s a ≈ 10 s; sigue muy por dentro de la ventana de 2 h |
+| 3. Memoria del cargue | cada tabla tiene el doble de filas | del orden de decenas de MB por vehículo; se resuelve un vehículo a la vez |
+| 4. Saturación (Kadane) | el doble de series (una por categoría y bodega) | de ≈ 0,07 s a ≈ 0,14 s |
+| 4. Programa actual | el doble de series | el doble de lo que tarda hoy: más de dos días según el banco |
+
+Las estrategias recomendadas aguantan el crecimiento sin cambios. Lo que no aguantaría son las operaciones 1 y 2 tal como están hoy: con el doble de lotes, la consulta lineal y el ordenamiento por inserción duplicarían o cuadruplicarían su trabajo, y la ventana de la madrugada se desbordaría todavía más. Por eso recomendamos implementarlas con las estructuras de la sección 2.1.
 
 ### 6.3 Consecuencias sobre las personas, marco normativo y sostenibilidad
 
