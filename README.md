@@ -537,7 +537,26 @@ Las estrategias recomendadas aguantan el crecimiento sin cambios. Lo que no agua
 
 ## 7. Conclusiones
 
-> Pendiente para la entrega del 23 de noviembre.
+**Principales hallazgos**
+
+- En el cargue de los vehículos (operación 3), la regla que usa hoy el banco no es solo "un poco peor": con nuestros datos lleva cerca del 42 % del valor nutricional que se podía cargar, aunque llene casi todo el vehículo. La programación dinámica (mochila 0/1) garantiza el máximo y resuelve los 14 vehículos en unos pocos segundos, muy por dentro de la ventana de 2 horas.
+- En el análisis de saturación (operación 4), el programa actual es la parte más costosa de todo el proceso. Pasar de evaluar todos los tramos a usar Kadane reduce el trabajo de unos 7,8 billones de sumas a 36.000 pasos por categoría: de meses (o más de un día, según el banco) a una fracción de segundo para las 40 categorías, con el mismo resultado exacto.
+- Las dos estrategias recomendadas son exactas y lo verificamos contra la solución exhaustiva en instancias pequeñas y en cada tamaño medido.
+- La energía de cómputo de las estrategias recomendadas es despreciable. El impacto ambiental grande está en la comida: más valor nutricional por viaje y un cuarto frío bien dimensionado significan menos alimentos vencidos.
+
+**Lecciones aprendidas**
+
+- El mismo paradigma se aplica distinto según el problema: en la mochila la programación dinámica necesita una tabla de n × W celdas, y en el tramo máximo basta guardar un solo número.
+- Una regla voraz que "suena bien", como cargar por densidad, puede acertar casi siempre y aun así no garantizar el óptimo; un contraejemplo pequeño lo demuestra mejor que muchas pruebas.
+- Medir con semilla fija, varias repeticiones y conteo de operaciones fue lo que nos permitió contrastar la teoría con lo medido y separar el ruido del computador de la tendencia real.
+- La complejidad pseudopolinomial importa en la práctica: la unidad en que se miden los pesos cambia el tamaño de la tabla.
+
+**Recomendaciones para futuras mejoras**
+
+- Implementar las operaciones 1 y 2 con las estructuras propuestas en la sección 2.1 (tabla hash, lista ordenada con búsqueda binaria y mezcla de listas ordenadas): son las que hoy ocupan la ventana de la madrugada.
+- Incluir en el valor de cada lote la prioridad social de la organización destino y la cercanía al vencimiento, para que el cargue óptimo no deje por fuera a los jardines infantiles ni contradiga el FEFO (secciones 5.3 y 6.2).
+- Mantener los pesos en kilogramos enteros y vigilar la capacidad máxima de los vehículos nuevos, porque el costo de la programación dinámica crece con W.
+- Medir el consumo real del computador del banco para reemplazar nuestras estimaciones de energía por datos medidos.
 
 ## 8. Reproducción de los datos y los experimentos
 
