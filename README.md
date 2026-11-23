@@ -206,6 +206,26 @@ Podemos definir `mejor_aqui(j)` como el mayor crecimiento posible en un tramo qu
 mejor_aqui(0) = cambios[0]
 mejor_aqui(j) = max( cambios[j], mejor_aqui(j-1) + cambios[j] )
 respuesta     = max sobre j de mejor_aqui(j)
+```
+
+Cada `mejor_aqui(j)` solo depende del anterior, así que basta una pasada por la serie guardando dos números (el mejor tramo que termina aquí y el mejor visto hasta ahora): Θ(n) en tiempo y Θ(1) en memoria adicional.
+
+#### Ejemplo resuelto a mano (8 horas)
+
+Serie de cambios: `[3, −5, 4, −1, 2, 6, −7, 2]` (kg por hora).
+
+| Hora j | cambios[j] | mejor_aqui(j) | Decisión | Mejor tramo hasta j |
+|---:|---:|---:|---|---|
+| 0 | 3 | 3 | empieza en 0 | 3 (horas 0–0) |
+| 1 | −5 | max(−5, 3 − 5) = −2 | continúa | 3 (horas 0–0) |
+| 2 | 4 | max(4, −2 + 4) = 4 | empieza de nuevo en 2 | 4 (horas 2–2) |
+| 3 | −1 | max(−1, 4 − 1) = 3 | continúa | 4 (horas 2–2) |
+| 4 | 2 | max(2, 3 + 2) = 5 | continúa | 5 (horas 2–4) |
+| 5 | 6 | max(6, 5 + 6) = 11 | continúa | **11 (horas 2–5)** |
+| 6 | −7 | max(−7, 11 − 7) = 4 | continúa | 11 (horas 2–5) |
+| 7 | 2 | max(2, 4 + 2) = 6 | continúa | 11 (horas 2–5) |
+
+El resultado es `(11, 2, 5)`: el mayor crecimiento es de 11 kg, entre las horas 2 y 5 (4 − 1 + 2 + 6 = 11). Dividir y vencer llega al mismo tramo: parte la serie en las horas 0–3 y 4–7, y el mejor tramo cruza el centro (de la hora 2 hacia la izquierda suma 3 y de la 4 a la 5 hacia la derecha suma 8). Este ejemplo es el que usa `probar_ejemplo_a_mano` en las pruebas.
 
 ## 3. Implementación
 
@@ -236,9 +256,38 @@ El código de esta operación está en [`src/cargue_vehiculos/`](src/cargue_vehi
   - `generar_instancia_pequena`: la capacidad es el 40 % del peso total, para que no quepan todos los lotes. Es la que usamos con la exhaustiva.
   - `generar_instancia_real`: de 300 a 600 lotes y un vehículo de 2.500 a 4.000 kg, como en el caso.
 
-### 3.2 Segunda operación
+### 3.2 Operación 4 — Saturación de la bodega
 
-> Pendiente para la entrega del 23 de noviembre.
+El código de esta operación está en [`src/saturacion_bodega/`](src/saturacion_bodega/) y sigue la misma organización de la operación 3:
+
+| Módulo | Contenido | Responsable |
+|---|---|---|
+| [`regla_actual.py`](src/saturacion_bodega/regla_actual.py) | `tramo_cubico`, que reproduce el programa actual (Θ(n³)), y `tramo_cuadratico`, la fuerza bruta mejorada (Θ(n²)) | Cristian Jose Mendez |
+| [`divide_y_venceras.py`](src/saturacion_bodega/divide_y_venceras.py) | `tramo_dyv`: dividir y vencer, Θ(n log n) | Mateo Orozco Oquendo |
+| [`kadane.py`](src/saturacion_bodega/kadane.py) | `tramo_kadane`: programación dinámica en una pasada, Θ(n) | Cristian Jose Mendez |
+| [`datos.py`](src/saturacion_bodega/datos.py) | generador de series sintéticas con semilla fija | Jhon Alejandro Isaza Pérez |
+| [`pruebas.py`](src/saturacion_bodega/pruebas.py) | pruebas con `assert` | Jhon Alejandro Isaza Pérez |
+| [`medicion.py`](src/saturacion_bodega/medicion.py) | experimentos, gráficas y extrapolación | Samuel Arango Montoya |
+
+**Decisiones de implementación:**
+
+- **Misma firma para las cuatro soluciones.** Todas reciben la lista de cambios por hora y devuelven `(crecimiento, hora_inicio, hora_fin)`. Así las pruebas y la medición las recorren en una sola lista y comparan sus resultados directamente.
+- **Contadores sin tocar las firmas.** Igual que en la operación 3, cada módulo tiene una versión `*_con_conteo` que además devuelve el número de operaciones: sumas en la fuerza bruta, horas sumadas en dividir y vencer y horas revisadas en Kadane.
+- **Dividir y vencer sin copiar la serie.** La recursión recibe los índices `bajo` y `alto` en lugar de cortar la lista en mitades. Si cortáramos la lista, cada nivel copiaría n elementos y la memoria crecería a Θ(n log n); con índices queda en Θ(log n), solo la pila de llamadas.
+- **Casos especiales definidos.** Una serie vacía lanza `ValueError`, porque no hay ningún tramo que reportar. Si todas las horas son negativas, el resultado es la hora que menos bajó, porque el tramo no puede ser vacío.
+- **La serie original nunca se modifica.** Las funciones solo leen la lista y devuelven posiciones.
+- **Datos sintéticos.** En [`datos.py`](src/saturacion_bodega/datos.py) cada hora es un número entero de kilogramos: un ruido entre −300 y 300 kg, un efecto de temporada que suma o resta hasta 40 kg siguiendo un ciclo de un año de operación (3.600 horas) y una deriva de −5 kg por hora, que representa que fuera de temporada sale un poco más de lo que entra. Con eso el tramo de mayor crecimiento cae dentro de una temporada, como en la situación que describe el caso.
+
+**Verificación** ([`pruebas.py`](src/saturacion_bodega/pruebas.py)):
+
+| Prueba | Qué verifica | Función |
+|---|---|---|
+| Casos límite | Las 4 soluciones con serie vacía (debe rechazarse), una sola hora positiva y negativa, todas las horas negativas (gana la que menos baja), todas positivas (gana la serie entera) y solo ceros | `probar_casos_limite` |
+| Ejemplo a mano | La serie de 8 horas de la sección 2.3: las 4 soluciones devuelven `(11, 2, 5)` | `probar_ejemplo_a_mano` |
+| 30 instancias aleatorias | Series de 1 a 204 horas (semillas 4040 a 4069): las 4 dan el mismo crecimiento que la fuerza bruta cúbica, y el tramo devuelto es válido (inicio ≤ fin, dentro de la serie y su suma es el crecimiento reportado) | `probar_aleatorias` + `es_tramo_valido` |
+| Registro original | Después de correr las 4 soluciones, la serie es idéntica a una copia tomada antes | `probar_registro_original` |
+
+Al ejecutarlo imprime `Todas las pruebas pasaron.` Además, [`medicion.py`](src/saturacion_bodega/medicion.py) comprueba en cada tamaño medido que todas las soluciones que corren en ese tamaño encuentran el mismo crecimiento.
 
 ## 4. Evaluación del desempeño
 
@@ -533,7 +582,46 @@ Las estrategias recomendadas aguantan el crecimiento sin cambios. Lo que no agua
 
 ### 6.3 Consecuencias sobre las personas, marco normativo y sostenibilidad
 
-> Pendiente para la entrega del 23 de noviembre.
+#### Qué pasa cuando el algoritmo se equivoca o llega tarde
+
+| Falla | Qué le pasa a quién | Cómo lo mitiga el diseño |
+|---|---|---|
+| La planeación termina tarde | Los vehículos salen tarde, las organizaciones reciben después de preparar sus comidas y los perecederos se vencen en la bodega. El costo lo pagan los beneficiarios, que reciben menos o comida menos fresca | Las estrategias recomendadas terminan en segundos (≈ 2,6 s el cargue y ≈ 0,07 s Kadane con el volumen real, secciones 4.3 y 4.4), así que no le quitan tiempo a la ventana; el resto del retraso viene de las operaciones 1 y 2 (sección 1.3) |
+| El cargue no es el óptimo | Cada vehículo sale con menos raciones de las posibles; con la regla actual, cerca del 42 % del valor que se podía llevar | La programación dinámica garantiza el máximo y la verificamos contra la solución exhaustiva |
+| Un vehículo se sobrecarga | Riesgo de seguridad en la vía y de sanciones | La restricción de capacidad está en la recurrencia y se comprueba en las pruebas de las 4 soluciones |
+| Sale un lote vencido | Riesgo para la salud de niños y adultos mayores, y sanciones sanitarias para el banco | Los lotes vencidos se filtran antes del cargue (supuesto de la sección 1.4); el cargue nunca modifica la fecha ni el registro, y los índices permiten rastrear cada lote si hay que retirarlo |
+| El tramo de saturación está mal calculado | Si el cuarto frío queda pequeño, se pierde comida en temporada; si queda grande, se gasta dinero que podría comprar alimentos | Kadane y dividir y vencer son exactos y los verificamos contra la fuerza bruta en todos los tamaños donde esta corre |
+
+En todos los casos el mayor costo lo pagan las personas atendidas, que son población vulnerable. Por eso preferimos estrategias exactas y verificadas, con resultados reproducibles (semilla fija) y fáciles de revisar por una persona: el cargue entrega la lista de lotes y el análisis entrega las horas exactas del tramo.
+
+#### Marco normativo y buenas prácticas
+
+| Norma o práctica | Qué exige | Cómo la respeta el diseño |
+|---|---|---|
+| Resolución 2674 de 2013, Ministerio de Salud y Protección Social | Requisitos sanitarios para quienes almacenan, transportan y distribuyen alimentos (buenas prácticas de manufactura) | El cargue parte de lotes vigentes ordenados por FEFO, no supera la capacidad y no altera los registros, de modo que la trazabilidad del lote se conserva hasta la entrega |
+| Resolución 5109 de 2005, Ministerio de la Protección Social | Rotulado de alimentos: la fecha de vencimiento es obligatoria y no se puede extender la vida útil | El algoritmo usa los días para vencer tal como vienen del rótulo y nunca modifica esa información |
+| Ley 1990 de 2019 y Decreto 375 de 2022 | Política contra la pérdida y el desperdicio de alimentos, que prioriza reducir la pérdida antes que otros destinos | El cargue óptimo lleva más valor nutricional por viaje y el análisis de saturación ayuda a dimensionar el frío para que no se venza comida en temporada |
+| Ley 1581 de 2012 (en especial el artículo 7) y su reglamentación (Decreto 1377 de 2013) | Protección de datos personales; el tratamiento de datos de niños, niñas y adolescentes solo procede si respeta su interés superior | Los algoritmos solo usan datos de lotes (peso, valor, vencimiento) y del inventario; no necesitan ni procesan los listados de beneficiarios, que incluyen menores de edad |
+| Ley 1098 de 2006, Código de la Infancia y la Adolescencia | Interés superior de niños y niñas y prevalencia de sus derechos | Recomendamos dar prioridad en el valor a los lotes para jardines infantiles, para que el cargue óptimo no los deje por fuera (sección 6.2) |
+| Código de Ética y Conducta Profesional de la ACM (2018) | Evitar el daño, ser honestos sobre las limitaciones del sistema y contribuir al bienestar de la sociedad | Declaramos supuestos y estimaciones, verificamos la exactitud contra soluciones exhaustivas y advertimos los límites, como que la programación dinámica no respeta el FEFO por sí sola |
+
+Fuentes consultadas:
+
+- Resolución 2674 de 2013: [Régimen Legal de Bogotá](https://www.alcaldiabogota.gov.co/sisjur/normas/Norma1.jsp?i=54030)
+- Resolución 5109 de 2005: [Normograma del INVIMA](https://normograma.invima.gov.co/normograma/compilacion/docs/resolucion_minproteccion_5109_2005.htm)
+- Ley 1990 de 2019: [Normograma del INVIMA](https://normograma.invima.gov.co/normograma/compilacion/docs/ley_1990_2019.htm)
+- Decreto 375 de 2022: [Gestor Normativo de Función Pública](https://www.funcionpublica.gov.co/eva/gestornormativo/norma.php?i=183946)
+- Ley 1581 de 2012: [Régimen Legal de Bogotá](https://www.alcaldiabogota.gov.co/sisjur/normas/Norma1.jsp?i=49981)
+- Ley 1098 de 2006: [Régimen Legal de Bogotá](https://www.alcaldiabogota.gov.co/sisjur/normas/Norma1.jsp?i=22106)
+- Código de ética de la ACM: [acm.org/code-of-ethics](https://www.acm.org/code-of-ethics)
+
+#### Trazabilidad de los datos originales
+
+Ninguna función modifica los datos que recibe. En la operación 3 el cargue devuelve índices de los lotes, y en la operación 4 el análisis devuelve la hora de inicio y la de fin del tramo. Las pruebas de la operación 4 comprueban explícitamente que la serie queda idéntica después de correr las cuatro soluciones. Para un uso real recomendamos guardar, por cada corrida, la fecha, los datos de entrada y el resultado, para poder responder ante un retiro de producto o una reclamación.
+
+#### Sostenibilidad de la decisión
+
+Las estrategias recomendadas crecen de forma controlada: la mochila en Θ(n·W) y Kadane en Θ(n). Si el banco abre una segunda bodega y duplica lotes y vehículos, el cargue pasaría de unos 2,6 s a unos 10 s y el análisis de saturación seguiría por debajo de un segundo (sección 6.2). El riesgo a vigilar es que el costo de la mochila depende de la capacidad en kilogramos: si cambia la unidad de medida o llegan vehículos mucho más grandes, la tabla crece en proporción.
 
 ## 7. Conclusiones
 
@@ -577,13 +665,18 @@ source .venv/bin/activate
 # 3. Instalar dependencias
 pip install -r requirements.txt
 
-# 4. Pruebas (≈ 1 s)
-python src/cargue_vehiculos/pruebas.py
+# 4. Operación 3 — cargue de los vehículos
+python src/cargue_vehiculos/pruebas.py      # unos segundos
+python src/cargue_vehiculos/medicion.py     # ≈ 20–40 s
 
-# 5. Experimentos y gráficas (≈ 20–40 s)
-python src/cargue_vehiculos/medicion.py
+# 5. Operación 4 — saturación de la bodega
+python src/saturacion_bodega/pruebas.py     # unos segundos
+python src/saturacion_bodega/medicion.py    # ≈ 1 min
+
+# 6. Informe en PDF (opcional; necesita Microsoft Edge o Google Chrome)
+python herramientas/generar_pdf.py
 ```
 
-- Los datos sintéticos no se descargan: [`datos.py`](src/cargue_vehiculos/datos.py) los genera en memoria con semilla fija (2026), así que en cada ejecución salen los mismos lotes.
-- `medicion.py` escribe en [`graficas/cargue_vehiculos/`](graficas/cargue_vehiculos/): `tiempo_vs_n.png`, `operaciones_vs_n.png`, `tiempo_vs_capacidad.png`, `mediciones.csv` y `resumen_mediciones.md`.
+- Los datos sintéticos no se descargan: cada `datos.py` los genera en memoria con semilla fija (2026), así que en cada ejecución salen los mismos lotes y las mismas series.
+- Cada `medicion.py` escribe sus gráficas, `mediciones.csv` y `resumen_mediciones.md` en [`graficas/cargue_vehiculos/`](graficas/cargue_vehiculos/) y [`graficas/saturacion_bodega/`](graficas/saturacion_bodega/).
 - Los tiempos cambian según el computador. Los valores, el número de operaciones y las verificaciones salen siempre iguales.
